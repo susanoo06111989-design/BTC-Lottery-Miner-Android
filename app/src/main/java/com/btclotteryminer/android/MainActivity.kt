@@ -29,7 +29,8 @@ class MainActivity : Activity() {
     private val events = ArrayDeque<String>()
     private lateinit var host: EditText
     private lateinit var port: EditText
-    private lateinit var wallet: EditText\n    private lateinit var workerName: EditText
+    private lateinit var wallet: EditText
+    private lateinit var workerName: EditText
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
     private lateinit var state: TextView
@@ -92,7 +93,8 @@ class MainActivity : Activity() {
         stopButton.isEnabled = active && !closing
         host.isEnabled = !active && !closing
         port.isEnabled = !active && !closing
-        wallet.isEnabled = !active && !closing\n        workerName.isEnabled = !active && !closing
+        wallet.isEnabled = !active && !closing
+        workerName.isEnabled = !active && !closing
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -118,7 +120,10 @@ class MainActivity : Activity() {
         root.addView(label("Puerto"))
         root.addView(port)
         root.addView(label("Dirección Bitcoin (guardada en este teléfono)"))
-        root.addView(wallet)\n        workerName = field("Nombre del worker", settings.getString("worker", "Android-01") ?: "Android-01")\n        root.addView(label("Nombre del worker (editable)"))\n        root.addView(workerName)
+        root.addView(wallet)
+        workerName = field("Nombre del worker", settings.getString("worker", "Android-01") ?: "Android-01")
+        root.addView(label("Nombre del worker (editable)"))
+        root.addView(workerName)
         startButton = Button(this).apply {
             text = "INICIO DE MINERÍA"
             setOnClickListener { startSolo() }
@@ -142,8 +147,12 @@ class MainActivity : Activity() {
         hashes = label("Hashes: —")
         shares = label("Aceptadas: 0 · Rechazadas: 0")
         difficulty = label("Dificultad de share: —")
-        network = label("Precio BTC/USD: —\nAltura de bloque: —\nTarifa rápida: —")
-        device = label("Batería: —\nTemperatura batería: —\nEstado térmico: —")
+        network = label("Precio BTC/USD: —
+Altura de bloque: —
+Tarifa rápida: —")
+        device = label("Batería: —
+Temperatura batería: —
+Estado térmico: —")
         log = label("Esperando conexión...", 13f)
         val performance = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -183,7 +192,8 @@ class MainActivity : Activity() {
         if (soloWorker?.isRunning() == true || closing) return
         val h = host.text.toString().trim()
         val p = port.text.toString().toIntOrNull()
-        val address = wallet.text.toString().trim()\n        val worker = workerName.text.toString().trim()
+        val address = wallet.text.toString().trim()
+        val worker = workerName.text.toString().trim()
         if (!worker.matches(Regex("[A-Za-z0-9_-]{1,32}")) || h.isBlank() || p == null || p !in 1..65535 ||
             !address.matches(Regex("^(bc1[ac-hj-np-z02-9]{11,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$"))) {
             Toast.makeText(this, "Introduce pool, puerto, wallet y worker válido (letras, números, - o _).", Toast.LENGTH_LONG).show()
@@ -230,7 +240,8 @@ class MainActivity : Activity() {
                 if (!msg.startsWith("Trabajo real:")) {
                     events.addFirst(msg)
                     while (events.size > 12) events.removeLast()
-                    log.text = events.joinToString("\n")
+                    log.text = events.joinToString("
+")
                 }
             }
         }
@@ -262,7 +273,9 @@ class MainActivity : Activity() {
                 val prices = getJson("v1/prices")
                 val height = getText("blocks/tip/height").trim()
                 val fees = getJson("v1/fees/recommended")
-                "Precio BTC/USD: $${prices.optString("USD", "—")}\nAltura de bloque: $height\nTarifa rápida: ${fees.optString("fastestFee", "—")} sat/vB"
+                "Precio BTC/USD: $${prices.optString("USD", "—")}
+Altura de bloque: $height
+Tarifa rápida: ${fees.optString("fastestFee", "—")} sat/vB"
             } catch (_: Exception) {
                 "Datos de red no disponibles (sin conexión o servicio inaccesible)."
             }
@@ -279,7 +292,10 @@ class MainActivity : Activity() {
         val thermal = if (Build.VERSION.SDK_INT >= 29) power.currentThermalStatus.toString() else "No disponible"
         val percentage = if (level >= 0 && scale > 0) "${level * 100 / scale} %" else "No disponible"
         val temperature = if (tenths >= 0) "${tenths / 10.0} °C (batería)" else "Sensor no disponible"
-        device.text = "Batería: $percentage\nTemperatura: $temperature\nEstado térmico Android: $thermal\nTemperatura CPU: no disponible"
+        device.text = "Batería: $percentage
+Temperatura: $temperature
+Estado térmico Android: $thermal
+Temperatura CPU: no disponible"
         ui.postDelayed({ if (alive.get()) refreshDevice() }, 15_000L)
     }
     override fun onDestroy() {

@@ -29,7 +29,7 @@ class MainActivity : Activity() {
     private val events = ArrayDeque<String>()
     private lateinit var host: EditText
     private lateinit var port: EditText
-    private lateinit var wallet: EditText
+    private lateinit var wallet: EditText\n    private lateinit var workerName: EditText
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
     private lateinit var state: TextView
@@ -92,7 +92,7 @@ class MainActivity : Activity() {
         stopButton.isEnabled = active && !closing
         host.isEnabled = !active && !closing
         port.isEnabled = !active && !closing
-        wallet.isEnabled = !active && !closing
+        wallet.isEnabled = !active && !closing\n        workerName.isEnabled = !active && !closing
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -118,7 +118,7 @@ class MainActivity : Activity() {
         root.addView(label("Puerto"))
         root.addView(port)
         root.addView(label("Dirección Bitcoin (guardada en este teléfono)"))
-        root.addView(wallet)
+        root.addView(wallet)\n        workerName = field("Nombre del worker", settings.getString("worker", "Android-01") ?: "Android-01")\n        root.addView(label("Nombre del worker (editable)"))\n        root.addView(workerName)
         startButton = Button(this).apply {
             text = "INICIO DE MINERÍA"
             setOnClickListener { startSolo() }
@@ -183,13 +183,13 @@ class MainActivity : Activity() {
         if (soloWorker?.isRunning() == true || closing) return
         val h = host.text.toString().trim()
         val p = port.text.toString().toIntOrNull()
-        val address = wallet.text.toString().trim()
-        if (h.isBlank() || p == null || p !in 1..65535 ||
+        val address = wallet.text.toString().trim()\n        val worker = workerName.text.toString().trim()
+        if (!worker.matches(Regex("[A-Za-z0-9_-]{1,32}")) || h.isBlank() || p == null || p !in 1..65535 ||
             !address.matches(Regex("^(bc1[ac-hj-np-z02-9]{11,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$"))) {
-            Toast.makeText(this, "Introduce pool, puerto y dirección Bitcoin válida.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Introduce pool, puerto, wallet y worker válido (letras, números, - o _).", Toast.LENGTH_LONG).show()
             return
         }
-        settings.edit().putString("pool", h).putString("port", p.toString()).putString("wallet", address).apply()
+        settings.edit().putString("pool", h).putString("port", p.toString()).putString("wallet", address).putString("worker", worker).apply()
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(wallet.windowToken, 0)
         wallet.clearFocus()
@@ -234,7 +234,7 @@ class MainActivity : Activity() {
                 }
             }
         }
-        soloWorker?.start(h, p, address)
+        soloWorker?.start(h, p, address, worker)
     }
 
     private fun getJson(path: String): JSONObject {

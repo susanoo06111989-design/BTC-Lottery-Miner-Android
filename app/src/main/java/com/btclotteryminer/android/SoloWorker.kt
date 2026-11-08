@@ -65,7 +65,8 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
     private fun send(writer: BufferedWriter, obj: JSONObject) {
         writer.write(obj.toString()); writer.newLine(); writer.flush()
     }
-    private fun runSession(host: String, port: Int, address: String, workerName: String) {\n        val username = "$address.$workerName"
+    private fun runSession(host: String, port: Int, address: String, workerName: String) {
+        val username = "$address.$workerName"
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         Socket().use { conn ->
             socket = conn

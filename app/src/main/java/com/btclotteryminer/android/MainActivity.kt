@@ -29,9 +29,9 @@ class MainActivity : Activity() {
         }
         val scroll = ScrollView(this)
         scroll.addView(layout)
-        layout.addView(TextView(this).apply { text = "BTC Lottery Miner — Alpha 9"; textSize = 23f })
+        layout.addView(TextView(this).apply { text = "BTC Lottery Miner — Alpha 11"; textSize = 23f })
         layout.addView(TextView(this).apply {
-            text = "Stratum SOLO diagnostic + local SHA-256d benchmark. NO mining or share submission yet."
+            text = "Diagnóstico Stratum: construcción de cabeceras de trabajos reales. No envía shares."
             textSize = 15f
         })
         host = EditText(this).apply { setSingleLine(); hint = "Stratum host"; setText("public-pool.io") }
@@ -77,13 +77,18 @@ class MainActivity : Activity() {
                     var subscribed = false
                     var authorized = false
                     var gotJob = false
+                    var extranonce1 = ""
+                    var extranonce2Size = 0
                     val deadline = System.currentTimeMillis() + 12000
                     while (System.currentTimeMillis() < deadline && !gotJob) {
                         val line = try { reader.readLine() } catch (_: java.net.SocketTimeoutException) { break } ?: break
                         val obj = try { JSONObject(line) } catch (_: Exception) { continue }
                         if (obj.optInt("id", -1) == 1 && !obj.isNull("result")) {
-                            subscribed = true
-                            result.append("Subscribe response received\n")
+                            val response = obj.optJSONArray("result")
+                            extranonce1 = response?.optString(1) ?: ""
+                            extranonce2Size = response?.optInt(2) ?: 0
+                            subscribed = extranonce1.isNotBlank() && extranonce2Size in 1..16
+                            result.append(if (subscribed) "Extranonce recibido\n" else "Suscripción incompleta\n")
                             writer.write(JSONObject().put("id", 2).put("method", "mining.authorize").put("params", org.json.JSONArray().put(address).put("x")).toString() + "\n")
                             writer.flush()
                         }
@@ -93,7 +98,30 @@ class MainActivity : Activity() {
                         }
                         when (obj.optString("method")) {
                             "mining.set_difficulty" -> result.append("Difficulty message received\n")
-                            "mining.notify" -> { gotJob = true; result.append("Mining job received (NOT processed)\n") }
+                            "mining.notify" -> {
+                                gotJob = true
+                                val params = obj.optJSONArray("params")
+                                if (!subscribed || params == null || params.length() < 9) {
+                                    result.append("Trabajo incompleto\n")
+                                } else try {
+                                    val branchArray = params.getJSONArray(4)
+                                    val branches = (0 until branchArray.length()).map { branchArray.getString(it) }
+                                    val merkle = BitcoinWork.merkleRoot(
+                                        params.getString(2), extranonce1,
+                                        "00".repeat(extranonce2Size), params.getString(3), branches
+                                    )
+                                    val header = BitcoinWork.header(
+                                        params.getString(5), params.getString(1), merkle,
+                                        params.getString(7), params.getString(6), 0L
+                                    )
+                                    result.append("Job ID: ").append(params.getString(0).take(24)).append("\n")
+                                    result.append("Cabecera: ").append(header.size).append(" bytes\n")
+                                    result.append("Hash nonce=0: ").append(BitcoinWork.hashDisplay(header)).append("\n")
+                                    result.append("Sin envío de shares; no es minería continua.\n")
+                                } catch (e: Exception) {
+                                    result.append("Error construyendo trabajo: ").append(e.message).append("\n")
+                                }
+                            }
                         }
                     }
                     if (!subscribed) result.append("Subscription not confirmed\n")

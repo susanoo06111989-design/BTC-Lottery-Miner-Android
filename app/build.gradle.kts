@@ -9,8 +9,8 @@ android {
         applicationId = "com.btclotteryminer.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.2.1-alpha9"
+        versionCode = 4
+        versionName = "2.2.1-alpha10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {

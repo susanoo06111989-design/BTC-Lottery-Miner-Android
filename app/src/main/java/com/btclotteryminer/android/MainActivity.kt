@@ -147,12 +147,12 @@ class MainActivity : Activity() {
         hashes = label("Hashes: —")
         shares = label("Aceptadas: 0 · Rechazadas: 0")
         difficulty = label("Dificultad de share: —")
-        network = label("Precio BTC/USD: —
+        network = label("""Precio BTC/USD: —
 Altura de bloque: —
-Tarifa rápida: —")
-        device = label("Batería: —
+Tarifa rápida: —""")
+        device = label("""Batería: —
 Temperatura batería: —
-Estado térmico: —")
+Estado térmico: —""")
         log = label("Esperando conexión...", 13f)
         val performance = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -240,8 +240,7 @@ Estado térmico: —")
                 if (!msg.startsWith("Trabajo real:")) {
                     events.addFirst(msg)
                     while (events.size > 12) events.removeLast()
-                    log.text = events.joinToString("
-")
+                    log.text = events.joinToString("\n")
                 }
             }
         }

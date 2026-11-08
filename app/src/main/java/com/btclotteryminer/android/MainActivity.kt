@@ -273,9 +273,9 @@ Estado térmico: —")
                 val prices = getJson("v1/prices")
                 val height = getText("blocks/tip/height").trim()
                 val fees = getJson("v1/fees/recommended")
-                "Precio BTC/USD: $${prices.optString("USD", "—")}
+                """Precio BTC/USD: ${prices.optString("USD", "—")}
 Altura de bloque: $height
-Tarifa rápida: ${fees.optString("fastestFee", "—")} sat/vB"
+Tarifa rápida: ${fees.optString("fastestFee", "—")} sat/vB"""
             } catch (_: Exception) {
                 "Datos de red no disponibles (sin conexión o servicio inaccesible)."
             }
@@ -292,10 +292,10 @@ Tarifa rápida: ${fees.optString("fastestFee", "—")} sat/vB"
         val thermal = if (Build.VERSION.SDK_INT >= 29) power.currentThermalStatus.toString() else "No disponible"
         val percentage = if (level >= 0 && scale > 0) "${level * 100 / scale} %" else "No disponible"
         val temperature = if (tenths >= 0) "${tenths / 10.0} °C (batería)" else "Sensor no disponible"
-        device.text = "Batería: $percentage
+        device.text = """Batería: $percentage
 Temperatura: $temperature
 Estado térmico Android: $thermal
-Temperatura CPU: no disponible"
+Temperatura CPU: no disponible"""
         ui.postDelayed({ if (alive.get()) refreshDevice() }, 15_000L)
     }
     override fun onDestroy() {

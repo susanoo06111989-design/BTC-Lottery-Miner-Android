@@ -16,6 +16,7 @@ class MainActivity : Activity() {
     private val running = AtomicBoolean(false)
     private val ui = Handler(Looper.getMainLooper())
     private var worker: Thread? = null
+    private var soloWorker: SoloWorker? = null
     private lateinit var status: TextView
     private lateinit var wallet: EditText
     private lateinit var host: EditText
@@ -31,7 +32,7 @@ class MainActivity : Activity() {
         scroll.addView(layout)
         layout.addView(TextView(this).apply { text = "BTC Lottery Miner — Alpha 11"; textSize = 23f })
         layout.addView(TextView(this).apply {
-            text = "Diagnóstico Stratum: construcción de cabeceras de trabajos reales. No envía shares."
+            text = "Minería SOLO experimental en primer plano. Shares solo cuentan cuando el servidor confirma."
             textSize = 15f
         })
         host = EditText(this).apply { setSingleLine(); hint = "Stratum host"; setText("public-pool.io") }
@@ -43,6 +44,14 @@ class MainActivity : Activity() {
         status = TextView(this).apply { text = "Ready"; textSize = 16f; setPadding(0, 24, 0, 24) }
         layout.addView(status)
         layout.addView(Button(this).apply {
+            text = "INICIAR MINERÍA SOLO (PRUEBA)"
+            setOnClickListener { startSolo() }
+        })
+        layout.addView(Button(this).apply {
+            text = "DETENER MINERÍA SOLO"
+            setOnClickListener { soloWorker?.stop(); status.text = "Deteniendo motor SOLO..." }
+        })
+        layout.addView(Button(this).apply {
             text = "PROBAR CONEXIÓN STRATUM"
             setOnClickListener { diagnose() }
         })
@@ -52,6 +61,23 @@ class MainActivity : Activity() {
         })
         layout.addView(Button(this).apply { text = "DETENER BENCHMARK"; setOnClickListener { stopBenchmark() } })
         setContentView(scroll)
+    }
+
+    private fun startSolo() {
+        if (running.get()) { status.text = "Detén el benchmark antes."; return }
+        val hostname = host.text.toString().trim()
+        val portNumber = port.text.toString().toIntOrNull()
+        val address = wallet.text.toString().trim()
+        if (hostname.isBlank() || portNumber == null || portNumber !in 1..65535 ||
+            !address.matches(Regex("^(bc1[ac-hj-np-z02-9]{11,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$"))) {
+            status.text = "Introduce servidor, puerto y dirección Bitcoin válida."; return
+        }
+        if (soloWorker?.isRunning() == true) return
+        status.text = "Iniciando minería SOLO en primer plano..."
+        soloWorker = SoloWorker(applicationContext) { message ->
+            ui.post { if (::status.isInitialized) status.text = message }
+        }
+        soloWorker?.start(hostname, portNumber, address)
     }
 
     private fun diagnose() {
@@ -192,5 +218,5 @@ class MainActivity : Activity() {
         worker?.interrupt()
         if (::status.isInitialized) status.text = "Benchmark detenido."
     }
-    override fun onDestroy() { stopBenchmark(); super.onDestroy() }
+    override fun onDestroy() { soloWorker?.stop(); stopBenchmark(); super.onDestroy() }
 }

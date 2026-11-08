@@ -27,14 +27,14 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
         try { socket?.close() } catch (_: Exception) {}
         threadHandle?.interrupt()
     }
-    fun start(host: String, port: Int, address: String) {
+    fun start(host: String, port: Int, address: String, workerName: String) {
         if (!active.compareAndSet(false, true)) return
         threadHandle = thread(name = "bitcoin-solo-stratum") {
             var failures = 0
             try {
                 while (active.get()) {
                     try {
-                        runSession(host, port, address)
+                        runSession(host, port, address, workerName)
                         if (active.get()) throw java.io.EOFException("Sesión Stratum finalizada")
                     } catch (e: Exception) {
                         if (!active.get()) break
@@ -65,7 +65,7 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
     private fun send(writer: BufferedWriter, obj: JSONObject) {
         writer.write(obj.toString()); writer.newLine(); writer.flush()
     }
-    private fun runSession(host: String, port: Int, address: String) {
+    private fun runSession(host: String, port: Int, address: String, workerName: String) {\n        val username = "$address.$workerName"
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         Socket().use { conn ->
             socket = conn
@@ -104,7 +104,7 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
                                 extra2Size = res?.optInt(2) ?: 0
                                 if (extra1.isBlank() || extra2Size !in 1..8) throw IllegalStateException("Suscripción inválida")
                                 send(writer, JSONObject().put("id", 2).put("method", "mining.authorize")
-                                    .put("params", JSONArray().put(address).put("x")))
+                                    .put("params", JSONArray().put(username).put("x")))
                             }
                             id == 2 -> {
                                 authorized = msg.optBoolean("result", false)
@@ -166,7 +166,7 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
                         val id = pendingId++
                         pending.add(id)
                         send(writer, JSONObject().put("id", id).put("method", "mining.submit")
-                            .put("params", JSONArray().put(address).put(params.getString(0))
+                            .put("params", JSONArray().put(username).put(params.getString(0))
                                 .put(extra2).put(ntime).put(nonce.toString(16).padStart(8, '0'))))
                         report(if (hash <= blockTarget) "CANDIDATO DE BLOQUE enviado; esperando respuesta" else "Share candidata enviada; esperando respuesta")
                     }

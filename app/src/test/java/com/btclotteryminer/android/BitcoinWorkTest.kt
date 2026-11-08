@@ -23,6 +23,19 @@ class BitcoinWorkTest {
         assertEquals(80, h.size)
         assertEquals("1dac2b7c", BitcoinWork.hex(h.copyOfRange(76, 80)))
     }
+    @Test fun genesisNetworkTarget() {
+        assertEquals(BitcoinWork.difficultyOneTarget, BitcoinWork.compactTarget("1d00ffff"))
+        val genesis = BitcoinWork.hexBytes(
+            "01000000" + "00".repeat(32) +
+            "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a" +
+            "29ab5f49" + "ffff001d" + "1dac2b7c"
+        )
+        assertTrue(BitcoinWork.hashMeetsTarget(genesis, BitcoinWork.compactTarget("1d00ffff")))
+        assertFalse(BitcoinWork.hashMeetsTarget(genesis, java.math.BigInteger.ONE))
+    }
+    @Test fun shareDifficultyOneTarget() {
+        assertEquals(BitcoinWork.difficultyOneTarget, BitcoinWork.shareTarget(1.0))
+    }
     @Test fun rejectsMalformedHex() {
         try { BitcoinWork.hexBytes("0z"); fail("Should reject malformed hex") }
         catch (_: IllegalArgumentException) {}

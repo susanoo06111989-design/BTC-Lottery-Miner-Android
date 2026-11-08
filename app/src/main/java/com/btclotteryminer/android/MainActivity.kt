@@ -144,16 +144,26 @@ class MainActivity : Activity() {
         network = label("Precio BTC/USD: —\nAltura de bloque: —\nTarifa rápida: —")
         device = label("Batería: —\nTemperatura batería: —\nEstado térmico: —")
         log = label("Esperando conexión...", 13f)
-        card("RENDIMIENTO", root, LinearLayout(this).apply {
+        val performance = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(speed); addView(hashes); addView(shares); addView(difficulty)
-        }.let { wrap -> label("").also { /* wrapper attached below */ } })
-        // Replace the placeholder card content with the actual metrics container.
-        val performance = root.getChildAt(root.childCount - 1) as LinearLayout
-        performance.removeViewAt(1)
-        performance.addView(LinearLayout(this).apply {
+            addView(speed)
+            addView(hashes)
+            addView(shares)
+            addView(difficulty)
+        }
+        val performanceCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(speed); addView(hashes); addView(shares); addView(difficulty)
+            setPadding(dp(15), dp(14), dp(15), dp(14))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(245, 247, 250))
+                cornerRadius = dp(12).toFloat()
+                setStroke(dp(1), Color.rgb(225, 230, 237))
+            }
+            addView(label("RENDIMIENTO", 16f, true))
+            addView(performance)
+        }
+        root.addView(performanceCard, LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(10)
         })
         card("RED BITCOIN · mempool.space", root, network)
         card("DISPOSITIVO", root, device)

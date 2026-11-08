@@ -79,6 +79,7 @@ class MainActivity : Activity() {
                     var gotJob = false
                     var extranonce1 = ""
                     var extranonce2Size = 0
+                    var stratumDifficulty = 1.0
                     val deadline = System.currentTimeMillis() + 12000
                     while (System.currentTimeMillis() < deadline && !gotJob) {
                         val line = try { reader.readLine() } catch (_: java.net.SocketTimeoutException) { break } ?: break
@@ -97,7 +98,13 @@ class MainActivity : Activity() {
                             result.append(if (authorized) "Authorization accepted\n" else "Authorization NOT confirmed\n")
                         }
                         when (obj.optString("method")) {
-                            "mining.set_difficulty" -> result.append("Difficulty message received\n")
+                            "mining.set_difficulty" -> {
+                                val nextDifficulty = obj.optJSONArray("params")?.optDouble(0) ?: Double.NaN
+                                if (nextDifficulty.isFinite() && nextDifficulty > 0.0) {
+                                    stratumDifficulty = nextDifficulty
+                                    result.append("Dificultad Stratum: ").append(stratumDifficulty).append("\n")
+                                } else result.append("Dificultad Stratum inválida\n")
+                            }
                             "mining.notify" -> {
                                 gotJob = true
                                 val params = obj.optJSONArray("params")
@@ -122,7 +129,26 @@ class MainActivity : Activity() {
                                     result.append("Nonce 0 cumple objetivo: ")
                                         .append(if (BitcoinWork.hashMeetsTarget(header, target)) "SÍ (candidato; sin confirmar)" else "NO")
                                         .append("\n")
-                                    result.append("Sin envío de shares; no es minería continua.\n")
+                                    val shareTarget = BitcoinWork.shareTarget(stratumDifficulty)
+                                    var shareCandidates = 0
+                                    var blockCandidates = 0
+                                    val scanStart = System.nanoTime()
+                                    val scanHeader = header.copyOf()
+                                    val digest = MessageDigest.getInstance("SHA-256")
+                                    for (nonce in 0 until 100_000) {
+                                        for (i in 0..3) scanHeader[76 + i] = (nonce ushr (i * 8)).toByte()
+                                        val hash = java.math.BigInteger(1,
+                                            digest.digest(digest.digest(scanHeader)).reversedArray())
+                                        if (hash <= shareTarget) shareCandidates++
+                                        if (hash <= target) blockCandidates++
+                                    }
+                                    val seconds = (System.nanoTime() - scanStart) / 1e9
+                                    result.append("Nonces de trabajo real probados: 100000\n")
+                                    result.append("Velocidad de prueba: ")
+                                        .append((100000.0 / seconds).toLong()).append(" H/s\n")
+                                    result.append("Candidatas share locales: ").append(shareCandidates).append("\n")
+                                    result.append("Candidatas bloque locales: ").append(blockCandidates).append("\n")
+                                    result.append("SIN envío al servidor. Diagnóstico limitado, no minería continua.\n")
                                 } catch (e: Exception) {
                                     result.append("Error construyendo trabajo: ").append(e.message).append("\n")
                                 }

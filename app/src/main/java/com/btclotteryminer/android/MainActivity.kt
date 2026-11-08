@@ -40,6 +40,7 @@ class MainActivity : Activity() {
     private lateinit var network: TextView
     private lateinit var device: TextView
     private lateinit var log: TextView
+    private val settings by lazy { getSharedPreferences("miner_settings", Context.MODE_PRIVATE) }
     private var mining = false
     private var closing = false
     private val alive = AtomicBoolean(true)
@@ -109,14 +110,14 @@ class MainActivity : Activity() {
         root.addView(label("₿ BTC Lottery Miner", 24f, true))
         root.addView(label("Android 2.2.1 · Alpha 11 · Bitcoin SOLO", 13f))
         root.addView(label("CONFIGURACIÓN", 16f, true).apply { setPadding(0, dp(20), 0, dp(6)) })
-        host = field("Pool Stratum", "public-pool.io")
-        port = field("Puerto", "21496", true)
-        wallet = field("Dirección Bitcoin", "")
+        host = field("Pool Stratum", settings.getString("pool", "public-pool.io") ?: "public-pool.io")
+        port = field("Puerto", settings.getString("port", "3333") ?: "3333", true)
+        wallet = field("Dirección Bitcoin", settings.getString("wallet", "") ?: "")
         root.addView(label("Pool Stratum"))
         root.addView(host)
         root.addView(label("Puerto"))
         root.addView(port)
-        root.addView(label("Dirección Bitcoin (no se guarda)"))
+        root.addView(label("Dirección Bitcoin (guardada en este teléfono)"))
         root.addView(wallet)
         startButton = Button(this).apply {
             text = "INICIO DE MINERÍA"
@@ -188,6 +189,7 @@ class MainActivity : Activity() {
             Toast.makeText(this, "Introduce pool, puerto y dirección Bitcoin válida.", Toast.LENGTH_LONG).show()
             return
         }
+        settings.edit().putString("pool", h).putString("port", p.toString()).putString("wallet", address).apply()
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(wallet.windowToken, 0)
         wallet.clearFocus()
@@ -212,6 +214,15 @@ class MainActivity : Activity() {
                         if (count != null) hashes.text = "Hashes calculados: $count"
                         if (diff != null) difficulty.text = "Dificultad de share: $diff"
                         shares.text = "Aceptadas: ${accepted ?: "0"} · Rechazadas: ${rejected ?: "0"}"
+                    }
+                    msg.startsWith("RECONEXIÓN #") -> {
+                        controls(true)
+                        state.text = "ESTADO: RECONECTANDO..."
+                        state.setTextColor(Color.rgb(180, 105, 0))
+                    }
+                    msg.startsWith("Conexión interrumpida:") -> {
+                        state.text = "ESTADO: CONEXIÓN INTERRUMPIDA"
+                        state.setTextColor(Color.rgb(180, 105, 0))
                     }
                     msg == "Autorización rechazada" -> state.text = "ESTADO: AUTORIZACIÓN RECHAZADA"
                     msg == "Autorización confirmada" -> state.text = "ESTADO: AUTORIZADO, ESPERANDO TRABAJO"

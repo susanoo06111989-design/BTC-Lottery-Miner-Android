@@ -1,6 +1,10 @@
 package com.btclotteryminer.android
 
 import android.app.Activity
+import android.graphics.Color
+import android.graphics.Typeface
+import android.view.inputmethod.InputMethodManager
+import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -19,6 +23,10 @@ class MainActivity : Activity() {
     private var soloWorker: SoloWorker? = null
     private lateinit var status: TextView
     private lateinit var miningLog: TextView
+    private lateinit var motorState: TextView
+    private lateinit var startMiningButton: Button
+    private lateinit var stopMiningButton: Button
+    private var miningConnected = false
     private val recentEvents = ArrayDeque<String>()
     private lateinit var wallet: EditText
     private lateinit var host: EditText
@@ -30,7 +38,12 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 40, 32, 24)
         }
-        val scroll = ScrollView(this)
+        val scroll = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = true
+            isScrollbarFadingEnabled = false
+            scrollBarStyle = android.view.View.SCROLLBARS_INSIDE_INSET
+            isFillViewport = true
+        }
         scroll.addView(layout)
         layout.addView(TextView(this).apply { text = "BTC Lottery Miner — Alpha 11"; textSize = 23f })
         layout.addView(TextView(this).apply {
@@ -45,16 +58,31 @@ class MainActivity : Activity() {
         layout.addView(wallet)
         status = TextView(this).apply { text = "Ready"; textSize = 16f; setPadding(0, 24, 0, 24) }
         layout.addView(status)
+        motorState = TextView(this).apply {
+            textSize = 17f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 12, 0, 12)
+        }
+        layout.addView(motorState)
         miningLog = TextView(this).apply { textSize = 13f; setPadding(0, 8, 0, 12) }
         layout.addView(miningLog)
-        layout.addView(Button(this).apply {
-            text = "INICIAR MINERÍA SOLO (PRUEBA)"
+        startMiningButton = Button(this).apply {
+            text = "INICIO DE MINERÍA"
             setOnClickListener { startSolo() }
-        })
-        layout.addView(Button(this).apply {
-            text = "DETENER MINERÍA SOLO"
-            setOnClickListener { soloWorker?.stop(); status.text = "Deteniendo motor SOLO..." }
-        })
+        }
+        layout.addView(startMiningButton)
+        stopMiningButton = Button(this).apply {
+            text = "DETENER MINERÍA"
+            setOnClickListener {
+                if (soloWorker?.isRunning() == true) {
+                    soloWorker?.stop()
+                    motorState.text = "DETENIENDO..."
+                    status.text = "Cerrando conexión SOLO..."
+                }
+            }
+        }
+        layout.addView(stopMiningButton)
+        updateMiningControls(false)
         layout.addView(Button(this).apply {
             text = "PROBAR CONEXIÓN STRATUM"
             setOnClickListener { diagnose() }
@@ -65,6 +93,21 @@ class MainActivity : Activity() {
         })
         layout.addView(Button(this).apply { text = "DETENER BENCHMARK"; setOnClickListener { stopBenchmark() } })
         setContentView(scroll)
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+    }
+
+    private fun updateMiningControls(connected: Boolean) {
+        miningConnected = connected
+        motorState.text = if (connected) "ESTADO: MINANDO SOLO" else "ESTADO: DETENIDO"
+        motorState.setTextColor(if (connected) Color.rgb(22, 130, 57) else Color.DKGRAY)
+        startMiningButton.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+            if (connected) Color.rgb(22, 145, 65) else Color.LTGRAY))
+        startMiningButton.setTextColor(if (connected) Color.WHITE else Color.BLACK)
+        stopMiningButton.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+            if (connected) Color.LTGRAY else Color.rgb(190, 36, 42)))
+        stopMiningButton.setTextColor(if (connected) Color.BLACK else Color.WHITE)
+        startMiningButton.isEnabled = !connected
+        stopMiningButton.isEnabled = connected
     }
 
     private fun startSolo() {
@@ -77,10 +120,24 @@ class MainActivity : Activity() {
             status.text = "Introduce servidor, puerto y dirección Bitcoin válida."; return
         }
         if (soloWorker?.isRunning() == true) return
-        status.text = "Iniciando minería SOLO en primer plano..."
+        status.text = "Conectando motor SOLO..."
+        motorState.text = "ESTADO: CONECTANDO"
+        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
+            .hideSoftInputFromWindow(wallet.windowToken, 0)
+        wallet.clearFocus()
+        host.clearFocus()
+        port.clearFocus()
         soloWorker = SoloWorker(applicationContext) { message ->
             ui.post {
                 if (::status.isInitialized) {
+                    if (message == "Motor detenido" || message.startsWith("Sesión terminada:") ||
+                        message.startsWith("Desconexión inesperada:") || message == "Autorización rechazada") {
+                        updateMiningControls(false)
+                    } else if (message == "Autorización confirmada") {
+                        motorState.text = "ESTADO: AUTORIZADO, ESPERANDO TRABAJO"
+                    } else if (message.startsWith("Trabajo real:")) {
+                        if (!miningConnected) updateMiningControls(true)
+                    }
                     if (message.startsWith("Trabajo real:")) {
                         status.text = message
                     } else {
@@ -205,7 +262,7 @@ class MainActivity : Activity() {
     }
 
     private fun startBenchmark() {
-        if (!running.compareAndSet(false, true)) return
+        if (soloWorker?.isRunning() == true || !running.compareAndSet(false, true)) return
         status.text = "Calculando hashes SHA-256d locales..."
         worker = thread(name = "sha256d-benchmark") {
             val digest = MessageDigest.getInstance("SHA-256")

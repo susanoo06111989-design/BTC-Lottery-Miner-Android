@@ -118,10 +118,10 @@ class MainActivity : Activity() {
                                     result.append("Cabecera: ").append(header.size).append(" bytes\n")
                                     result.append("Hash nonce=0: ").append(BitcoinWork.hashDisplay(header)).append("\n")
                                     val target = BitcoinWork.compactTarget(params.getString(6))
-                                    result.append("Objetivo de bloque: ").append(target.toString(16)).append("\\n")
+                                    result.append("Objetivo de bloque: ").append(target.toString(16)).append("\n")
                                     result.append("Nonce 0 cumple objetivo: ")
                                         .append(if (BitcoinWork.hashMeetsTarget(header, target)) "SÍ (candidato; sin confirmar)" else "NO")
-                                        .append("\\n")
+                                        .append("\n")
                                     result.append("Sin envío de shares; no es minería continua.\n")
                                 } catch (e: Exception) {
                                     result.append("Error construyendo trabajo: ").append(e.message).append("\n")

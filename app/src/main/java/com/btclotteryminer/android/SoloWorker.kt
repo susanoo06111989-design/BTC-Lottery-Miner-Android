@@ -60,7 +60,9 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
             var accepted = 0
             var rejected = 0
             var hashes = 0L
-            var started = System.nanoTime()
+            val started = System.nanoTime()
+            var lastStatusAt = 0L
+            var lastThermalReport = 0L
             while (active.get()) {
                 // Read pending Stratum messages before each bounded work chunk.
                 try {
@@ -89,7 +91,7 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
                             }
                             msg.optString("method") == "mining.set_difficulty" -> {
                                 difficulty = msg.optJSONArray("params")?.optDouble(0) ?: Double.NaN
-                                report("Dificultad: $difficulty")
+                                report("Dificultad de share (servidor): $difficulty; objetivo medio: " + if (difficulty.isFinite() && difficulty > 0.0) "%.3g".format(java.util.Locale.US, difficulty * 4294967296.0) + " hashes/share" else "no disponible")
                             }
                             msg.optString("method") == "mining.notify" -> {
                                 val params = msg.optJSONArray("params")
@@ -97,7 +99,7 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
                                     job = params
                                     generation++
                                     nextExtra2 = 0
-                                    report("Nuevo trabajo: ${params.optString(0)}")
+                                    report("Nuevo trabajo: ${params.optString(0)}; objetivo de bloque nBits=${params.optString(6)} (independiente de dificultad share)")
                                 }
                             }
                         }
@@ -107,7 +109,10 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
                 if (pm.isDeviceIdleMode) { Thread.sleep(1000); continue }
                 val thermal = if (android.os.Build.VERSION.SDK_INT >= 29) pm.currentThermalStatus else 0
                 if (thermal >= PowerManager.THERMAL_STATUS_MODERATE) {
-                    report("Pausa térmica: estado Android $thermal")
+                    if (System.nanoTime() - lastThermalReport > 10_000_000_000L) {
+                        report("Pausa térmica: estado Android $thermal")
+                        lastThermalReport = System.nanoTime()
+                    }
                     Thread.sleep(2000)
                     continue
                 }
@@ -142,7 +147,10 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
                     if (nonce % 8192L == 0L) {
                         if (!active.get() || generation != currentGeneration) break
                         val elapsed = (System.nanoTime() - started) / 1e9
-                        if (elapsed > 0) report("Trabajo real: ${(hashes / elapsed).toLong()} H/s; hashes=$hashes; aceptadas=$accepted; rechazadas=$rejected")
+                        if (elapsed > 0 && System.nanoTime() - lastStatusAt > 2_000_000_000L) {
+                            report("Trabajo real: ${(hashes / elapsed).toLong()} H/s; hashes=$hashes; dificultad share=$difficulty; aceptadas=$accepted; rechazadas=$rejected")
+                            lastStatusAt = System.nanoTime()
+                        }
                         if (android.os.Build.VERSION.SDK_INT >= 29 && pm.currentThermalStatus >= PowerManager.THERMAL_STATUS_MODERATE) break
                     }
                 }

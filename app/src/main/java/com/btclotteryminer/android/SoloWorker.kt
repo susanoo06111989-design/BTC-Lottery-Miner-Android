@@ -30,14 +30,38 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
     fun start(host: String, port: Int, address: String) {
         if (!active.compareAndSet(false, true)) return
         threadHandle = thread(name = "bitcoin-solo-stratum") {
-            try { runSession(host, port, address) }
-            catch (e: Exception) {
-                if (active.get()) report("Desconexión inesperada: ${e.javaClass.simpleName}: ${e.message ?: ""}")
-                else report("Conexión cerrada al detener la minería")
+            var failures = 0
+            try {
+                while (active.get()) {
+                    try {
+                        runSession(host, port, address)
+                        if (active.get()) throw java.io.EOFException("Sesión Stratum finalizada")
+                    } catch (e: Exception) {
+                        if (!active.get()) break
+                        failures++
+                        val delaySeconds = minOf(60, 3 * (1 shl minOf(failures - 1, 4)))
+                        report("Conexión interrumpida: ${e.javaClass.simpleName}: ${e.message ?: "sin detalle"}")
+                        report("RECONEXIÓN #$failures en $delaySeconds s")
+                        // Sleep in small intervals so manual STOP is always responsive.
+                        repeat(delaySeconds * 5) {
+                            if (!active.get()) return@thread
+                            try { Thread.sleep(200) } catch (_: InterruptedException) {
+                                if (!active.get()) return@thread
+                            }
+                        }
+                    } finally {
+                        try { socket?.close() } catch (_: Exception) {}
+                        socket = null
+                    }
+                }
+            } finally {
+                active.set(false)
+                socket = null
+                report("Motor detenido")
             }
-            finally { active.set(false); socket = null; report("Motor detenido") }
         }
     }
+
     private fun send(writer: BufferedWriter, obj: JSONObject) {
         writer.write(obj.toString()); writer.newLine(); writer.flush()
     }

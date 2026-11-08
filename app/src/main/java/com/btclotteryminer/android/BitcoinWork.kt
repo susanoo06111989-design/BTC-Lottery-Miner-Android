@@ -56,7 +56,7 @@ object BitcoinWork {
 
     fun compactTarget(nbits: String): BigInteger {
         require(nbits.length == 8)
-        val bits = hexBytes(nbits).reversedArray()
+        val bits = hexBytes(nbits)
         val compact = BigInteger(1, bits)
         val size = compact.shiftRight(24).toInt()
         val word = compact.and(BigInteger("007fffff", 16))

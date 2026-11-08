@@ -31,7 +31,10 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
         if (!active.compareAndSet(false, true)) return
         threadHandle = thread(name = "bitcoin-solo-stratum") {
             try { runSession(host, port, address) }
-            catch (e: Exception) { report("Sesión terminada: ${e.javaClass.simpleName}: ${e.message ?: ""}") }
+            catch (e: Exception) {
+                if (active.get()) report("Desconexión inesperada: ${e.javaClass.simpleName}: ${e.message ?: ""}")
+                else report("Conexión cerrada al detener la minería")
+            }
             finally { active.set(false); socket = null; report("Motor detenido") }
         }
     }
@@ -103,7 +106,7 @@ class SoloWorker(private val context: Context, private val report: (String) -> U
                                 }
                             }
                         }
-                    } else break
+                    } else throw java.io.EOFException("El servidor cerró la conexión")
                 } catch (_: java.net.SocketTimeoutException) {}
                 if (!active.get()) break
                 if (pm.isDeviceIdleMode) { Thread.sleep(1000); continue }

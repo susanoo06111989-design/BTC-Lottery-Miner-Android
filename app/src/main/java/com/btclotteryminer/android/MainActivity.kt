@@ -18,6 +18,8 @@ class MainActivity : Activity() {
     private var worker: Thread? = null
     private var soloWorker: SoloWorker? = null
     private lateinit var status: TextView
+    private lateinit var miningLog: TextView
+    private val recentEvents = ArrayDeque<String>()
     private lateinit var wallet: EditText
     private lateinit var host: EditText
     private lateinit var port: EditText
@@ -43,6 +45,8 @@ class MainActivity : Activity() {
         layout.addView(wallet)
         status = TextView(this).apply { text = "Ready"; textSize = 16f; setPadding(0, 24, 0, 24) }
         layout.addView(status)
+        miningLog = TextView(this).apply { textSize = 13f; setPadding(0, 8, 0, 12) }
+        layout.addView(miningLog)
         layout.addView(Button(this).apply {
             text = "INICIAR MINERÍA SOLO (PRUEBA)"
             setOnClickListener { startSolo() }
@@ -75,13 +79,23 @@ class MainActivity : Activity() {
         if (soloWorker?.isRunning() == true) return
         status.text = "Iniciando minería SOLO en primer plano..."
         soloWorker = SoloWorker(applicationContext) { message ->
-            ui.post { if (::status.isInitialized) status.text = message }
+            ui.post {
+                if (::status.isInitialized) {
+                    if (message.startsWith("Trabajo real:")) {
+                        status.text = message
+                    } else {
+                        recentEvents.addFirst(message)
+                        while (recentEvents.size > 12) recentEvents.removeLast()
+                        miningLog.text = "EVENTOS STRATUM (últimos 12):\n" + recentEvents.joinToString("\n")
+                    }
+                }
+            }
         }
         soloWorker?.start(hostname, portNumber, address)
     }
 
     private fun diagnose() {
-        if (running.get()) { status.text = "Detén el benchmark primero."; return }
+        if (running.get() || soloWorker?.isRunning() == true) { status.text = "Detén el motor activo primero."; return }
         val hostname = host.text.toString().trim()
         val portNumber = port.text.toString().toIntOrNull()
         val address = wallet.text.toString().trim()

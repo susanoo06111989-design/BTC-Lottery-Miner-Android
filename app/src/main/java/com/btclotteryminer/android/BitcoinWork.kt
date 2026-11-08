@@ -1,6 +1,7 @@
 package com.btclotteryminer.android
 
 import java.security.MessageDigest
+import java.math.BigInteger
 
 /**
  * Bitcoin Stratum v1 job encoding primitives.
@@ -47,6 +48,36 @@ object BitcoinWork {
             hexBytes(ntime).reversedArray() + hexBytes(nbits).reversedArray() + u32le(nonce)
         check(result.size == 80)
         return result
+    }
+
+    private val maxTarget = BigInteger.ONE.shiftLeft(256).subtract(BigInteger.ONE)
+    val difficultyOneTarget: BigInteger =
+        BigInteger("00000000ffff0000000000000000000000000000000000000000000000000000", 16)
+
+    fun compactTarget(nbits: String): BigInteger {
+        require(nbits.length == 8)
+        val bits = hexBytes(nbits).reversedArray()
+        val compact = BigInteger(1, bits)
+        val size = compact.shiftRight(24).toInt()
+        val word = compact.and(BigInteger("007fffff", 16))
+        require(!compact.testBit(23) && word.signum() > 0) { "Negative or zero target" }
+        val target = if (size <= 3) word.shiftRight(8 * (3 - size))
+                     else word.shiftLeft(8 * (size - 3))
+        require(target.signum() > 0 && target <= maxTarget) { "Target out of range" }
+        return target
+    }
+
+    fun shareTarget(difficulty: Double): BigInteger {
+        require(difficulty.isFinite() && difficulty > 0.0)
+        val decimal = java.math.BigDecimal(difficulty.toString())
+        val target = java.math.BigDecimal(difficultyOneTarget)
+            .divide(decimal, 0, java.math.RoundingMode.DOWN).toBigInteger()
+        return target.min(maxTarget)
+    }
+
+    fun hashMeetsTarget(header: ByteArray, target: BigInteger): Boolean {
+        require(header.size == 80 && target.signum() > 0)
+        return BigInteger(1, reverse(sha256d(header))) <= target
     }
 
     /** For a raw network-order 80-byte Bitcoin block header. */
